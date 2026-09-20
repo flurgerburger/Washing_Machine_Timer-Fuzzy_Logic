@@ -48,10 +48,6 @@
             groupBox3 = new GroupBox();
             groupBox7 = new GroupBox();
             picRulesGraph = new PictureBox();
-            lblR4 = new Label();
-            lblR3 = new Label();
-            lblR2 = new Label();
-            lblR1 = new Label();
             groupBox6 = new GroupBox();
             lblInDetHigh = new Label();
             lblInDetNorm = new Label();
@@ -282,10 +278,6 @@
             // groupBox7
             // 
             groupBox7.Controls.Add(picRulesGraph);
-            groupBox7.Controls.Add(lblR4);
-            groupBox7.Controls.Add(lblR3);
-            groupBox7.Controls.Add(lblR2);
-            groupBox7.Controls.Add(lblR1);
             groupBox7.Location = new Point(461, 22);
             groupBox7.Name = "groupBox7";
             groupBox7.Size = new Size(376, 446);
@@ -295,51 +287,11 @@
             // 
             // picRulesGraph
             // 
-            picRulesGraph.Location = new Point(19, 131);
+            picRulesGraph.Location = new Point(6, 22);
             picRulesGraph.Name = "picRulesGraph";
-            picRulesGraph.Size = new Size(335, 293);
+            picRulesGraph.Size = new Size(364, 402);
             picRulesGraph.TabIndex = 4;
             picRulesGraph.TabStop = false;
-            // 
-            // lblR4
-            // 
-            lblR4.AutoSize = true;
-            lblR4.Location = new Point(19, 99);
-            lblR4.Name = "lblR4";
-            lblR4.RightToLeft = RightToLeft.Yes;
-            lblR4.Size = new Size(119, 15);
-            lblR4.TabIndex = 3;
-            lblR4.Text = "R4 (Heavy Duty): 0.00";
-            // 
-            // lblR3
-            // 
-            lblR3.AutoSize = true;
-            lblR3.Location = new Point(19, 74);
-            lblR3.Name = "lblR3";
-            lblR3.RightToLeft = RightToLeft.Yes;
-            lblR3.Size = new Size(117, 15);
-            lblR3.TabIndex = 2;
-            lblR3.Text = "R3 (Deep Wash): 0.00";
-            // 
-            // lblR2
-            // 
-            lblR2.AutoSize = true;
-            lblR2.Location = new Point(19, 51);
-            lblR2.Name = "lblR2";
-            lblR2.RightToLeft = RightToLeft.Yes;
-            lblR2.Size = new Size(98, 15);
-            lblR2.TabIndex = 1;
-            lblR2.Text = "R2 (Normal): 0.00";
-            // 
-            // lblR1
-            // 
-            lblR1.AutoSize = true;
-            lblR1.Location = new Point(19, 26);
-            lblR1.Name = "lblR1";
-            lblR1.RightToLeft = RightToLeft.Yes;
-            lblR1.Size = new Size(89, 15);
-            lblR1.TabIndex = 0;
-            lblR1.Text = "R1 (Quick): 0.00";
             // 
             // groupBox6
             // 
@@ -510,7 +462,6 @@
             groupBox2.PerformLayout();
             groupBox3.ResumeLayout(false);
             groupBox7.ResumeLayout(false);
-            groupBox7.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)picRulesGraph).EndInit();
             groupBox6.ResumeLayout(false);
             groupBox6.PerformLayout();
@@ -569,10 +520,6 @@
         private Label lblInDetNorm;
         private Label lblInDetHigh;
         private GroupBox groupBox7;
-        private Label lblR1;
-        private Label lblR4;
-        private Label lblR3;
-        private Label lblR2;
         private PictureBox picRulesGraph;
     }
 }

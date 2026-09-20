@@ -1,9 +1,22 @@
+using System.Collections.Concurrent;
+
 namespace Washing_Machine_Timer_Fuzzy_Logic;
 
 public partial class Form1 : Form
 {
-    private double[] ruleStrengths = new double[4]; // r1, r2, r3, r4
-    private string[] ruleNames = new string[] { "Quick", "Normal", "Deep", "Heavy" };
+    private double[] ruleStrengths = new double[9]; // r1..r9
+    private string[] ruleNames = new string[]
+    {
+        "Low/Light/LowDet",    // r1
+        "Low/Med/NormalDet",   // r2
+        "Low/Heavy/HighDet",   // r3
+        "Med/Light/LowDet",    // r4
+        "Med/Med/NormalDet",   // r5
+        "Med/Heavy/HighDet",   // r6
+        "High/Light/LowDet",   // r7
+        "High/Med/NormalDet",  // r8
+        "High/Heavy/HighDet"   // r9
+    };
 
     public Form1()
     {
@@ -51,66 +64,93 @@ public partial class Form1 : Form
 
     private double CalculateSugeno(double load, double soiling, double detergent)
     {
-        double loadLow = TriangularMembership(load, 0, 0, 5);
-        double loadMed = TriangularMembership(load, 3, 5, 7);
-        double loadHigh = TrapezoidalMembership(load, 5, 7, 10, 10);
+       // 1.Fuzzification(Adjusted to maintain strong partition unity across ranges)
+        double loadLow = TriangularMembership(load, 0, 0, 9);
+        double loadMed = TriangularMembership(load, 0, 9, 18);
+        double loadHigh = TriangularMembership(load, 9, 18, 18);
 
-        double soilLight = TriangularMembership(soiling, 0, 0, 4);
-        double soilMed = TriangularMembership(soiling, 2, 5, 8);
-        double soilHeavy = TrapezoidalMembership(soiling, 5, 7, 10, 10);
+        double soilLight = TriangularMembership(soiling, 0, 0, 5);
+        double soilMed = TriangularMembership(soiling, 0, 5, 10);
+        double soilHeavy = TriangularMembership(soiling, 5, 10, 10);
 
-        double detLow = TriangularMembership(detergent, 0, 0, 30);
-        double detNormal = TriangularMembership(detergent, 20, 50, 80);
-        double detHigh = TrapezoidalMembership(detergent, 60, 80, 100, 100);
+        double detLow = TriangularMembership(detergent, 0, 0, 50);
+        double detNormal = TriangularMembership(detergent, 0, 50, 100);
+        double detHigh = TriangularMembership(detergent, 50, 100, 100);
 
-        double r1 = Math.Min(loadLow, Math.Min(soilLight, detNormal));
-        double cr1 = 15.0;
+        // 2. Rule Evaluation (9 core rules)
+        double r1 = Math.Min(loadLow, Math.Min(soilLight, detLow)); double cr1 = 10.0;
+        double r2 = Math.Min(loadLow, Math.Min(soilMed, detNormal)); double cr2 = 20.0;
+        double r3 = Math.Min(loadLow, Math.Min(soilHeavy, detHigh)); double cr3 = 35.0;
 
-        double r2 = Math.Min(loadMed, Math.Min(soilMed, detNormal));
-        double cr2 = 35.0;
+        double r4 = Math.Min(loadMed, Math.Min(soilLight, detLow)); double cr4 = 25.0;
+        double r5 = Math.Min(loadMed, Math.Min(soilMed, detNormal)); double cr5 = 35.0;
+        double r6 = Math.Min(loadMed, Math.Min(soilHeavy, detHigh)); double cr6 = 50.0;
 
-        double r3 = Math.Max(loadHigh, Math.Max(soilHeavy, detLow));
-        double cr3 = 50.0;
+        double r7 = Math.Min(loadHigh, Math.Min(soilLight, detLow)); double cr7 = 40.0;
+        double r8 = Math.Min(loadHigh, Math.Min(soilMed, detNormal)); double cr8 = 50.0;
+        double r9 = Math.Min(loadHigh, Math.Min(soilHeavy, detHigh)); double cr9 = 60.0;
 
-        double r4 = detHigh;
-        double cr4 = 60.0;
+        // Strategy 1: Default Safety Rule (Guarantees denominator is never zero)
+        double rDefault = 0.1;
+        double crDefault = 30.0;
 
-        double num = (r1 * cr1) + (r2 * cr2) + (r3 * cr3) + (r4 * cr4);
-        double den = r1 + r2 + r3 + r4;
+        // 3. Aggregation & Sugeno Defuzzification
+        double num = (r1 * cr1) + (r2 * cr2) + (r3 * cr3) +
+                     (r4 * cr4) + (r5 * cr5) + (r6 * cr6) +
+                     (r7 * cr7) + (r8 * cr8) + (r9 * cr9) +
+                     (rDefault * crDefault);
 
-        // Store current strengths
+        double den = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + rDefault;
+
+        // Store current strengths (keeping array bounds safe)
         ruleStrengths[0] = r1;
         ruleStrengths[1] = r2;
         ruleStrengths[2] = r3;
         ruleStrengths[3] = r4;
+        ruleStrengths[4] = r5;
+        ruleStrengths[5] = r6;
+        ruleStrengths[6] = r7;
+        ruleStrengths[7] = r8;
+        ruleStrengths[8] = r9;
 
         // Repaint bar chart
-
         picRulesGraph.Invalidate();
 
-        UpdateFuzzyStatusDisplay(loadLow, loadMed, loadHigh, soilLight, soilMed, soilHeavy, detLow, detNormal, detHigh, r1, r2, r3, r4);
+        UpdateFuzzyStatusDisplay(new double[] { loadLow, loadMed, loadHigh, soilLight, soilMed, soilHeavy, detLow, detNormal, detHigh }, ruleStrengths);
 
-        return den > 0 ? num / den : 0.0;
+        return num / den;
     }
 
     private double CalculateMamdani(double load, double soiling, double detergent)
     {
-        double loadLow = TriangularMembership(load, 0, 0, 5);
-        double loadMed = TriangularMembership(load, 3, 5, 7);
-        double loadHigh = TrapezoidalMembership(load, 5, 7, 10, 10);
+        // 1. Fuzzification (Aligned partition unity)
+        double loadLow = TriangularMembership(load, 0, 0, 9);
+        double loadMed = TriangularMembership(load, 0, 9, 18);
+        double loadHigh = TriangularMembership(load, 9, 18, 18);
 
-        double soilLight = TriangularMembership(soiling, 0, 0, 4);
-        double soilMed = TriangularMembership(soiling, 2, 5, 8);
-        double soilHeavy = TrapezoidalMembership(soiling, 5, 7, 10, 10);
+        double soilLight = TriangularMembership(soiling, 0, 0, 5);
+        double soilMed = TriangularMembership(soiling, 0, 5, 10);
+        double soilHeavy = TriangularMembership(soiling, 5, 10, 10);
 
-        double detLow = TriangularMembership(detergent, 0, 0, 30);
-        double detNormal = TriangularMembership(detergent, 20, 50, 80);
-        double detHigh = TrapezoidalMembership(detergent, 60, 80, 100, 100);
+        double detLow = TriangularMembership(detergent, 0, 0, 150);
+        double detNormal = TriangularMembership(detergent, 0, 150, 300);
+        double detHigh = TriangularMembership(detergent, 150, 300, 300);
 
-        double r1 = Math.Min(loadLow, Math.Min(soilLight, detNormal));
-        double r2 = Math.Min(loadMed, Math.Min(soilMed, detNormal));
-        double r3 = Math.Min(loadHigh, Math.Min(soilHeavy, detHigh));
-        double r4 = detHigh;
+        // 2. Rule Evaluation (9 core rules)
+        double r1 = Math.Min(loadLow, Math.Min(soilLight, detLow));
+        double r2 = Math.Min(loadLow, Math.Min(soilMed, detNormal));
+        double r3 = Math.Min(loadLow, Math.Min(soilHeavy, detHigh));
+
+        double r4 = Math.Min(loadMed, Math.Min(soilLight, detLow));
+        double r5 = Math.Min(loadMed, Math.Min(soilMed, detNormal));
+        double r6 = Math.Min(loadMed, Math.Min(soilHeavy, detHigh));
+
+        double r7 = Math.Min(loadHigh, Math.Min(soilLight, detLow));
+        double r8 = Math.Min(loadHigh, Math.Min(soilMed, detNormal));
+        double r9 = Math.Min(loadHigh, Math.Min(soilHeavy, detHigh));
+
+        // Strategy 1: Default Safety Rule Weight
+        double rDefault = 0.1;
 
         double sumNum = 0.0;
         double sumDen = 0.0;
@@ -124,11 +164,23 @@ public partial class Form1 : Form
             double outExtra = TriangularMembership(t, 50.0, 60.0, 60.0);
 
             double clip1 = Math.Min(r1, outShort);
-            double clip2 = Math.Min(r2, outMed);
-            double clip3 = Math.Min(r3, outLong);
-            double clip4 = Math.Min(r4, outExtra);
+            double clip2 = Math.Min(r2, outShort);
+            double clip3 = Math.Min(r3, outMed);
+            double clip4 = Math.Min(r4, outMed);
+            double clip5 = Math.Min(r5, outMed);
+            double clip6 = Math.Min(r6, outLong);
+            double clip7 = Math.Min(r7, outLong);
+            double clip8 = Math.Min(r8, outExtra);
+            double clip9 = Math.Min(r9, outExtra);
 
-            double aggregated = Math.Max(clip1, Math.Max(clip2, Math.Max(clip3, clip4)));
+            // Default rule output clips to a steady medium-average baseline time (e.g., outMed)
+            double clipDefault = Math.Min(rDefault, outMed);
+
+            double aggregated = Math.Max(clip1, Math.Max(clip2,
+                                Math.Max(clip3, Math.Max(clip4,
+                                Math.Max(clip5, Math.Max(clip6,
+                                Math.Max(clip7, Math.Max(clip8,
+                                Math.Max(clip9, clipDefault)))))))));
 
             sumNum += t * aggregated * step;
             sumDen += aggregated * step;
@@ -139,31 +191,76 @@ public partial class Form1 : Form
         ruleStrengths[1] = r2;
         ruleStrengths[2] = r3;
         ruleStrengths[3] = r4;
+        ruleStrengths[4] = r5;
+        ruleStrengths[5] = r6;
+        ruleStrengths[6] = r7;
+        ruleStrengths[7] = r8;
+        ruleStrengths[8] = r9;
 
         // Repaint bar chart
-
         picRulesGraph.Invalidate();
-        UpdateFuzzyStatusDisplay(loadLow, loadMed, loadHigh, soilLight, soilMed, soilHeavy, detLow, detNormal, detHigh, r1, r2, r3, r4);
+        UpdateFuzzyStatusDisplay(new double[] { loadLow, loadMed, loadHigh, soilLight, soilMed, soilHeavy, detLow, detNormal, detHigh }, ruleStrengths);
 
-        return sumDen > 0 ? sumNum / sumDen : 0.0;
+        // Guaranteed safe denominator protection
+        return sumDen > 0 ? sumNum / sumDen : 30.0;
     }
 
 
     private double TriangularMembership(double x, double a, double b, double c)
     {
+
+        // Handle degenerate cases where the peak equals a or c to avoid division by zero
+        if (b == a)
+        {
+            // Left-shoulder: full membership at and below b, then decreases towards c
+            if (x <= b) return 1.0;
+            if (x >= c) return 0.0;
+            return (c - x) / (c - b);
+        }
+
+        if (b == c)
+        {
+            // Right-shoulder: increases from a up to b and stays 1 at and above b
+            if (x >= b) return 1.0;
+            if (x <= a) return 0.0;
+            return (x - a) / (b - a);
+        }
+
         if (x <= a || x >= c) return 0.0;
         if (x == b) return 1.0;
         if (x > a && x < b) return (x - a) / (b - a);
         return (c - x) / (c - b);
     }
 
-    private double TrapezoidalMembership(double x, double a, double b, double c, double d)
-    {
-        if (x < a || x > d) return 0.0;
-        if (x >= b && x <= c) return 1.0;
-        if (x > a && x < b) return (x - a) / (b - a);
-        return (d - x) / (d - c);
-    }
+    //private double TrapezoidalMembership(double x, double a, double b, double c, double d)
+    //{
+
+    //    // Guard against invalid ranges
+    //    if (d <= a) return 0.0;
+
+    //    if (x < a || x > d) return 0.0;
+
+    //    // Flat top
+    //    if (b <= x && x <= c) return 1.0;
+
+    //    // Rising edge (handle b==a)
+    //    if (x >= a && x < b)
+    //    {
+    //        if (b == a) return 1.0;
+    //        return (x - a) / (b - a);
+    //    }
+
+    //    // Falling edge (handle c==d)
+    //    if (x > c && x <= d)
+    //    {
+    //        if (d == c) return 1.0;
+    //        return (d - x) / (d - c);
+    //    }
+
+    //    return 0.0;
+    //}
+
+    
 
     private void numLoad_Scroll(object sender, EventArgs e)
     {
@@ -203,9 +300,9 @@ public partial class Form1 : Form
         PictureBox box = sender as PictureBox;
         var loadShapes = new List<PointF[]>
         {
-            new PointF[] { new PointF(0, 1), new PointF(5, 0) },
-            new PointF[] { new PointF(3, 0), new PointF(5, 1), new PointF(7, 0) },
-            new PointF[] { new PointF(5, 0), new PointF(7, 1), new PointF(18, 1) }
+            new PointF[] { new PointF(0, 1), new PointF(9, 0) },
+            new PointF[] { new PointF(0, 0), new PointF(9, 1), new PointF(18, 0) },
+            new PointF[] { new PointF(9, 0), new PointF(18, 1), new PointF(18, 1) }
         };
         string[] labels = { "Low", "Med", "High" };
 
@@ -218,9 +315,9 @@ public partial class Form1 : Form
         PictureBox box = sender as PictureBox;
         var soilShapes = new List<PointF[]>
         {
-            new PointF[] { new PointF(0, 1), new PointF(4, 0) },
-            new PointF[] { new PointF(2, 0), new PointF(5, 1), new PointF(8, 0) },
-            new PointF[] { new PointF(5, 0), new PointF(7, 1), new PointF(10, 1) }
+            new PointF[] { new PointF(0, 1), new PointF(5, 0) },
+            new PointF[] { new PointF(0, 0), new PointF(5, 1), new PointF(10, 0) },
+            new PointF[] { new PointF(5, 0), new PointF(10, 1), new PointF(10, 1) }
         };
         string[] labels = { "Light", "Med", "Heavy" };
 
@@ -230,16 +327,17 @@ public partial class Form1 : Form
 
     private void picDetGraph_Paint(object sender, PaintEventArgs e)
     {
+
         PictureBox box = sender as PictureBox;
         var detShapes = new List<PointF[]>
         {
-            new PointF[] { new PointF(0, 1), new PointF(30, 0) },
-            new PointF[] { new PointF(20, 0), new PointF(50, 1), new PointF(80, 0) },
-            new PointF[] { new PointF(60, 0), new PointF(80, 1), new PointF(100, 1) }
+            new PointF[] { new PointF(0, 1), new PointF(150, 0) },
+            new PointF[] { new PointF(0, 0), new PointF(150, 1), new PointF(300, 0) },
+            new PointF[] { new PointF(150, 0), new PointF(300, 1), new PointF(300, 1) }
         };
         string[] labels = { "Low", "Normal", "High" };
 
-        DrawMembershipGraph(box, e.Graphics, numDetergent.Value, 100, "Detergent Membership (ml)",
+        DrawMembershipGraph(box, e.Graphics, numDetergent.Value, 300, "Detergent Membership (ml)",
             new Color[] { Color.Blue, Color.Green, Color.Goldenrod }, detShapes, labels);
     }
 
@@ -372,30 +470,25 @@ public partial class Form1 : Form
         DrawRuleFiringGraph(picRulesGraph, e.Graphics, ruleStrengths, ruleNames);
     }
 
-    private void UpdateFuzzyStatusDisplay(
-        double loadLow, double loadMed, double loadHigh,
-        double soilLight, double soilMed, double soilHeavy,
-        double detLow, double detNormal, double detHigh,
-        double r1, double r2, double r3, double r4)
+    private void UpdateFuzzyStatusDisplay(double[] inputMemberships, double[] ruleValues)
     {
-        // Input Memberships
-        lblInLoadLow.Text = $"Load Low: {loadLow:F2}";
-        lblInLoadMed.Text = $"Load Med: {loadMed:F2}";
-        lblInLoadHigh.Text = $"Load High: {loadHigh:F2}";
+        // Input Memberships - expect array ordering: loadLow, loadMed, loadHigh, soilLight, soilMed, soilHeavy, detLow, detNormal, detHigh
+        if (inputMemberships != null && inputMemberships.Length >= 9)
+        {
+            lblInLoadLow.Text = $"Load Low: {inputMemberships[0]:F2}";
+            lblInLoadMed.Text = $"Load Med: {inputMemberships[1]:F2}";
+            lblInLoadHigh.Text = $"Load High: {inputMemberships[2]:F2}";
 
-        lblInSoilLight.Text = $"Soil Light: {soilLight:F2}";
-        lblInSoilMed.Text = $"Soil Med: {soilMed:F2}";
-        lblInSoilHeavy.Text = $"Soil Heavy: {soilHeavy:F2}";
+            lblInSoilLight.Text = $"Soil Light: {inputMemberships[3]:F2}";
+            lblInSoilMed.Text = $"Soil Med: {inputMemberships[4]:F2}";
+            lblInSoilHeavy.Text = $"Soil Heavy: {inputMemberships[5]:F2}";
 
-        lblInDetLow.Text = $"Det Low: {detLow:F2}";
-        lblInDetNorm.Text = $"Det Normal: {detNormal:F2}";
-        lblInDetHigh.Text = $"Det High: {detHigh:F2}";
+            lblInDetLow.Text = $"Det Low: {inputMemberships[6]:F2}";
+            lblInDetNorm.Text = $"Det Normal: {inputMemberships[7]:F2}";
+            lblInDetHigh.Text = $"Det High: {inputMemberships[8]:F2}";
+        }
 
-        // Rule Firing Strengths
-        lblR1.Text = $"R1 (Quick): {r1:F2}";
-        lblR2.Text = $"R2 (Normal): {r2:F2}";
-        lblR3.Text = $"R3 (Deep Wash): {r3:F2}";
-        lblR4.Text = $"R4 (Heavy Duty): {r4:F2}";
+        // The small textual rule labels above the graph were removed from the UI; nothing to update here.
     }
 
 
