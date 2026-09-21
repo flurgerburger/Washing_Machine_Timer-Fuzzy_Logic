@@ -73,9 +73,9 @@ public partial class Form1 : Form
         double soilMed = TriangularMembership(soiling, 0, 5, 10);
         double soilHeavy = TriangularMembership(soiling, 5, 10, 10);
 
-        double detLow = TriangularMembership(detergent, 0, 0, 50);
-        double detNormal = TriangularMembership(detergent, 0, 50, 100);
-        double detHigh = TriangularMembership(detergent, 50, 100, 100);
+        double detLow = TriangularMembership(detergent, 0, 0, 150);
+        double detNormal = TriangularMembership(detergent, 0, 150, 300);
+        double detHigh = TriangularMembership(detergent, 150, 300, 300);
 
         // 2. Rule Evaluation (9 core rules)
         double r1 = Math.Min(loadLow, Math.Min(soilLight, detLow)); double cr1 = 10.0;
