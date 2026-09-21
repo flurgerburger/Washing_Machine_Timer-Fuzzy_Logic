@@ -4,7 +4,7 @@ namespace Washing_Machine_Timer_Fuzzy_Logic;
 
 public partial class Form1 : Form
 {
-    private double[] ruleStrengths = new double[9]; // r1..r9
+    private double[] ruleStrengths = new double[15]; // r1..r15
     private string[] ruleNames = new string[]
     {
         "Low/Light/LowDet",    // r1
@@ -15,7 +15,13 @@ public partial class Form1 : Form
         "Med/Heavy/HighDet",   // r6
         "High/Light/LowDet",   // r7
         "High/Med/NormalDet",  // r8
-        "High/Heavy/HighDet"   // r9
+        "High/Heavy/HighDet",  // r9
+        "Low/Heavy/NormalDet", // r10
+        "Low/Heavy/LowDet",    // r11
+        "Med/Heavy/NormalDet", // r12
+        "Med/Heavy/LowDet",    // r13
+        "High/Heavy/NormalDet",// r14
+        "High/Heavy/LowDet"    // r15
     };
 
     public Form1()
@@ -90,6 +96,23 @@ public partial class Form1 : Form
         double r8 = Math.Min(loadHigh, Math.Min(soilMed, detNormal)); double cr8 = 50.0;
         double r9 = Math.Min(loadHigh, Math.Min(soilHeavy, detHigh)); double cr9 = 60.0;
 
+        // Additional rules to cover Heavy soil with Normal/Low detergent for each load
+        double r10 = Math.Min(loadLow, Math.Min(soilHeavy, detNormal)); double cr10 = 40.0;
+        double r11 = Math.Min(loadLow, Math.Min(soilHeavy, detLow)); double cr11 = 45.0;
+
+        double r12 = Math.Min(loadMed, Math.Min(soilHeavy, detNormal)); double cr12 = 55.0;
+        double r13 = Math.Min(loadMed, Math.Min(soilHeavy, detLow)); double cr13 = 60.0;
+
+        double r14 = Math.Min(loadHigh, Math.Min(soilHeavy, detNormal)); double cr14 = 65.0;
+        double r15 = Math.Min(loadHigh, Math.Min(soilHeavy, detLow)); double cr15 = 70.0;
+
+        // Detergent high should slightly reduce required time (helps cleaning) —
+        // apply a gentle reduction to consequents of rules that include detHigh.
+        double detReductionFactor = 0.12; // 12% max reduction when detHigh==1.0
+        cr3 *= 1.0 - detReductionFactor * detHigh;
+        cr6 *= 1.0 - detReductionFactor * detHigh;
+        cr9 *= 1.0 - detReductionFactor * detHigh;
+
         // Strategy 1: Default Safety Rule (used only as a last-resort guard)
         // Use a very small epsilon so it doesn't dominate normal rule firing.
         double rDefault = 1e-6;
@@ -98,9 +121,11 @@ public partial class Form1 : Form
         // 3. Aggregation & Sugeno Defuzzification
         double num = (r1 * cr1) + (r2 * cr2) + (r3 * cr3) +
                      (r4 * cr4) + (r5 * cr5) + (r6 * cr6) +
-                     (r7 * cr7) + (r8 * cr8) + (r9 * cr9);
+                     (r7 * cr7) + (r8 * cr8) + (r9 * cr9) +
+                     (r10 * cr10) + (r11 * cr11) + (r12 * cr12) +
+                     (r13 * cr13) + (r14 * cr14) + (r15 * cr15);
 
-        double den = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9;
+        double den = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10 + r11 + r12 + r13 + r14 + r15;
 
         // Store current strengths (keeping array bounds safe)
         ruleStrengths[0] = r1;
@@ -112,6 +137,12 @@ public partial class Form1 : Form
         ruleStrengths[6] = r7;
         ruleStrengths[7] = r8;
         ruleStrengths[8] = r9;
+        ruleStrengths[9] = r10;
+        ruleStrengths[10] = r11;
+        ruleStrengths[11] = r12;
+        ruleStrengths[12] = r13;
+        ruleStrengths[13] = r14;
+        ruleStrengths[14] = r15;
 
         // Repaint bar chart
         picRulesGraph.Invalidate();
@@ -150,6 +181,16 @@ public partial class Form1 : Form
         double r8 = Math.Min(loadHigh, Math.Min(soilMed, detNormal));
         double r9 = Math.Min(loadHigh, Math.Min(soilHeavy, detHigh));
 
+        // Additional Mamdani rules covering Heavy soil with Normal/Low detergent
+        double r10 = Math.Min(loadLow, Math.Min(soilHeavy, detNormal));
+        double r11 = Math.Min(loadLow, Math.Min(soilHeavy, detLow));
+
+        double r12 = Math.Min(loadMed, Math.Min(soilHeavy, detNormal));
+        double r13 = Math.Min(loadMed, Math.Min(soilHeavy, detLow));
+
+        double r14 = Math.Min(loadHigh, Math.Min(soilHeavy, detNormal));
+        double r15 = Math.Min(loadHigh, Math.Min(soilHeavy, detLow));
+
         // Strategy 1: Default Safety Rule Weight (tiny epsilon to avoid dominating aggregation)
         double rDefault = 1e-6;
 
@@ -174,6 +215,23 @@ public partial class Form1 : Form
             double clip8 = Math.Min(r8, outExtra);
             double clip9 = Math.Min(r9, outExtra);
 
+            // Clips for the additional heavy-soil rules
+            double clip10 = Math.Min(r10, outLong);   // Low load + Heavy + NormalDet -> slightly longer
+            double clip11 = Math.Min(r11, outExtra);  // Low load + Heavy + LowDet -> longest
+
+            double clip12 = Math.Min(r12, outExtra);  // Med + Heavy + NormalDet
+            double clip13 = Math.Min(r13, outExtra);  // Med + Heavy + LowDet
+
+            double clip14 = Math.Min(r14, outExtra);  // High + Heavy + NormalDet
+            double clip15 = Math.Min(r15, outExtra);  // High + Heavy + LowDet
+
+            // If detergent membership is high, slightly reduce the contribution
+            // of rules that include detHigh so overall defuzzified time becomes shorter.
+            double detReductionFactor = 0.12; // keep consistent with Sugeno
+            clip3 *= 1.0 - detReductionFactor * detHigh;
+            clip6 *= 1.0 - detReductionFactor * detHigh;
+            clip9 *= 1.0 - detReductionFactor * detHigh;
+
             // Default rule output clips to a steady medium-average baseline time (e.g., outMed)
             double clipDefault = Math.Min(rDefault, outMed);
 
@@ -197,6 +255,12 @@ public partial class Form1 : Form
         ruleStrengths[6] = r7;
         ruleStrengths[7] = r8;
         ruleStrengths[8] = r9;
+        ruleStrengths[9] = r10;
+        ruleStrengths[10] = r11;
+        ruleStrengths[11] = r12;
+        ruleStrengths[12] = r13;
+        ruleStrengths[13] = r14;
+        ruleStrengths[14] = r15;
 
         // Repaint bar chart
         picRulesGraph.Invalidate();
