@@ -90,17 +90,17 @@ public partial class Form1 : Form
         double r8 = Math.Min(loadHigh, Math.Min(soilMed, detNormal)); double cr8 = 50.0;
         double r9 = Math.Min(loadHigh, Math.Min(soilHeavy, detHigh)); double cr9 = 60.0;
 
-        // Strategy 1: Default Safety Rule (Guarantees denominator is never zero)
-        double rDefault = 0.1;
+        // Strategy 1: Default Safety Rule (used only as a last-resort guard)
+        // Use a very small epsilon so it doesn't dominate normal rule firing.
+        double rDefault = 1e-6;
         double crDefault = 30.0;
 
         // 3. Aggregation & Sugeno Defuzzification
         double num = (r1 * cr1) + (r2 * cr2) + (r3 * cr3) +
                      (r4 * cr4) + (r5 * cr5) + (r6 * cr6) +
-                     (r7 * cr7) + (r8 * cr8) + (r9 * cr9) +
-                     (rDefault * crDefault);
+                     (r7 * cr7) + (r8 * cr8) + (r9 * cr9);
 
-        double den = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + rDefault;
+        double den = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9;
 
         // Store current strengths (keeping array bounds safe)
         ruleStrengths[0] = r1;
@@ -118,7 +118,8 @@ public partial class Form1 : Form
 
         UpdateFuzzyStatusDisplay(new double[] { loadLow, loadMed, loadHigh, soilLight, soilMed, soilHeavy, detLow, detNormal, detHigh }, ruleStrengths);
 
-        return num / den;
+        // If nothing fired (den == 0) use the safe default output; otherwise return weighted average
+        return den > 0 ? num / den : crDefault;
     }
 
     private double CalculateMamdani(double load, double soiling, double detergent)
@@ -149,8 +150,8 @@ public partial class Form1 : Form
         double r8 = Math.Min(loadHigh, Math.Min(soilMed, detNormal));
         double r9 = Math.Min(loadHigh, Math.Min(soilHeavy, detHigh));
 
-        // Strategy 1: Default Safety Rule Weight
-        double rDefault = 0.1;
+        // Strategy 1: Default Safety Rule Weight (tiny epsilon to avoid dominating aggregation)
+        double rDefault = 1e-6;
 
         double sumNum = 0.0;
         double sumDen = 0.0;
@@ -488,7 +489,6 @@ public partial class Form1 : Form
             lblInDetHigh.Text = $"Det High: {inputMemberships[8]:F2}";
         }
 
-        // The small textual rule labels above the graph were removed from the UI; nothing to update here.
     }
 
 
